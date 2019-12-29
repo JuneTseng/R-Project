@@ -1,0 +1,509 @@
+library(ggplot2)
+library(readxl)
+library(lmtest)
+library(Hmisc)
+
+install.packages("corrplot")
+library(corrplot)
+
+#Loading data-Weekly Visits,Financials,Lbs. Sold,Daily Visits, Demographics
+
+
+Weekly<- read_excel("~/Desktop/DD-Module A/R/Class 5/Web Analytics Case Student Spreadsheet (1).xlsx", 
+                       sheet = "Weekly Visits", skip = 3, col_names = TRUE )
+Financial<-read_excel("~/Desktop/DD-Module A/R/Class 5/Web Analytics Case Student Spreadsheet (1).xlsx", 
+                         sheet = "Financials", skip = 3, col_names = TRUE )
+Lbs_sold<-read_excel("~/Desktop/DD-Module A/R/Class 5/Web Analytics Case Student Spreadsheet (1).xlsx", 
+                        sheet = "Lbs. Sold", skip = 3, col_names = TRUE )
+Daily_visits<- read_excel("~/Desktop/DD-Module A/R/Class 5/Web Analytics Case Student Spreadsheet (1).xlsx", 
+                             sheet = "Daily Visits", skip = 3, col_names = TRUE )
+Demography <-read_excel("~/Desktop/DD-Module A/R/Class 5/Web Analytics Case Student Spreadsheet (1).xlsx", 
+                        sheet = "Demographics", skip = 4, col_names = TRUE )
+
+######Ingetstion######    
+
+"
+1. Each sheet has different date-format -> need to be aligned -> Create a format 2018-01-01
+2. Lbs_sold & Daily visits worksheets are out of our data range -> can be reference but not used for analysis
+3. Dates can be group by 4 stage: Initial, Pre-Promo, Promotion, Post-Promo
+"
+
+
+#####Data Massage######                        
+
+#Step1- Create a new column for New_weeks and transform to date format -Weekly_df
+
+ #Step1.1 use for loop to create a new weekly column in date-format
+
+ #create a function to form the old week format (May 25 - May 31) to new format (2018 May 25)
+
+datetransform<-function(old_date, year){
+  paste(year,substr(old_date, 1,6))
+}
+
+ #Use for loop to create a new column for New_weeks
+
+Weekly$New_week<-c()
+for(i in c(1:32)){
+ Weekly$New_week[i]<-datetransform(old_date = Weekly$`Week (2008-2009)`[i], year = 2008)
+}
+for(i in c(33:nrow(Weekly))){
+  Weekly$New_week[i]<-datetransform(old_date = Weekly$`Week (2008-2009)`[i], year = 2009)
+}
+ 
+
+ #Step1.2 Transform characters to dates 
+
+Weekly$New_week<-as.Date(Weekly$New_week, format = "%Y %b %d")
+
+View(Weekly)
+
+
+#Step2- Merge two data set
+
+merge_df<-merge.data.frame(Weekly,Financial)
+
+
+  #Step2.1- Sort the dataset by dates
+merge_df_sort<-merge_df[order(merge_df$New_week, decreasing = FALSE),]
+
+View(merge_df_sort)
+
+  #Step2.1 -Delete duplicated columns 
+
+#Step3- Check the data set
+
+summary(merge_df_sort)
+sum
+is.null(merge_df_sort) #No missing values
+
+#Step4. Analysis 
+
+
+
+#Question 5 Revenue (Y) &Pounds sold(X)- Sactter diagram 
+
+scatter_revenue_pounds<-ggplot(merge_df_sort, aes(`Lbs. Sold`,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Pounds sold", y="Revenue",title ="Revenue v.s Pounds sold" )
+scatter_revenue_pounds
+
+cor(x = merge_df_sort$`Lbs. Sold`,y=merge_df_sort$Revenue)
+
+#Question 6 Revenue (Y) &Visits(X)- Sactter diagram 
+
+scatter_revenue_visits<-ggplot(merge_df_sort, aes(Visits,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Visits", y="Revenue",title ="Revenue v.s Visits")
+scatter_revenue_visits
+
+cor(x = merge_df_sort$Visits,y=merge_df_sort$Revenue)
+
+
+
+###Regression analysis### 
+
+
+
+#heatmap to show the correlation 
+
+View(merge_df)
+
+
+a<-merge_df[,2:8]
+b<-merge_df[,10:13]
+c<-cbind(a,b)#Merge two subset dataframe
+
+
+#Use rcorr() function to show correlation and P-Value
+
+cor_data<- cor(c,method = c("pearson", "kendall", "spearman"))
+round(cor_data,2)
+cor_data
+heatmap(cor_data)
+
+#Use rcorr() function to show correlation and P-Value
+
+rcorr(cor_data)
+
+#Use Corrplot to show correlation btw each variables
+#Source: http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software
+
+corrplot(cor_data,type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+View(cor_df)
+
+
+#Histogram 
+
+colnames(merge_df_sort)
+write.csv(merge_df_sort,file = "merge_data.csv")
+
+list_graph<-c("Visits","Pageviews","Pages/Visit","Revenue","Profit","Inquiries" )
+
+par(mfrow=c(3,3))
+
+hist(as.numeric(merge_df_sort$`Lbs. Sold`), main ="Hist of Lbs. Soldt")
+hist(as.numeric(merge_df_sort$`Visits`), main = "Hist of Visits")
+hist(as.numeric(merge_df_sort$`Pageviews`), main = "Hist of Pageviews")
+hist(as.numeric(merge_df_sort$`Pages/Visit`, main = "Hist of Pages/Visit"))
+hist(as.numeric(merge_df_sort$`Revenue`), main ="Hist of Revenue" )
+hist(as.numeric(merge_df_sort$`Profit`),  main ="Hist of Profit")
+hist(as.numeric(merge_df_sort$`Inquiries`), main ="Hist of Inquiries")
+hist(as.numeric(merge_df_sort$`Unique Visits`), main ="Hist of Unique Visits")
+hist(as.numeric(merge_df_sort$`Avg. Time on Site (secs.)`), main ="Hist of Avg.Time on Site")
+hist(as.numeric(merge_df_sort$`% New Visits`), main ="Hist of % New Visits")
+hist(as.numeric(merge_df_sort$`Lbs. Sold`), main ="Hist of Lbs. Soldt")
+
+
+
+
+hist(as.numeric(merge_df_sort$`Lbs. Sold`), main ="Hist of Lbs. Soldt")
+hist(as.numeric(merge_df_sort$`Revenue`), main ="Hist of Revenue" )
+hist(as.numeric(merge_df_sort$`Profit`),  main ="Hist of Profit")
+
+
+
+colnames(merge_df_sort)
+
+
+#Scatter plots- Revenue(Y)
+
+scatter_revenue_visits<-ggplot(merge_df_sort, aes(Visits,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Visits", y="Revenue",title ="Revenue v.s Visits")
+scatter_revenue_visits
+
+merge_df$`Avg. Time on Site (secs.)`
+
+#Bar charts 
+par(mfrow=c(3,2))
+UniqueVisits_bar<-ggplot(merge_df_sort, aes(New_week, `Unique Visits`)) + stat_summary(fun.y = mean, geom = "bar", fill = "White", colour = "Black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Time", y = "Unique Visits", title = "Unique Visits over the period")
+UniqueVisits_bar
+
+Revenue_bar<-ggplot(merge_df_sort, aes(New_week, Revenue)) + stat_summary(fun.y = mean, geom = "bar", fill = "White", colour = "Black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Time", y = "Revenue",title = "Revenue over the period")
+Revenue_bar
+
+Profit_bar<-ggplot(merge_df_sort, aes(New_week, Profit)) + stat_summary(fun.y = mean, geom = "bar", fill = "White", colour = "Black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Time", y = "Profit",title = "Profit over the period")
+Profit_bar
+
+Sold_bar<-ggplot(merge_df_sort, aes(New_week,`Lbs. Sold`))+ stat_summary(fun.y = mean, geom = "bar", fill = "White", colour = "Black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Time", y = "Lbs. Sold",title = "Lbs Sold over the period")
+Sold_bar
+
+Visits_bar<-ggplot(merge_df_sort, aes(New_week, Visits)) + stat_summary(fun.y = mean, geom = "bar", fill = "White", colour = "Black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Time", y = "Visits", title = "Visits over the period")
+Visits_bar
+
+Inquiries_bar<-ggplot(merge_df_sort, aes(New_week, Inquiries)) + stat_summary(fun.y = mean, geom = "bar", fill = "White", colour = "Black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Time", y = "Inquiries", title = "Inquiries over the period")
+Inquiries_bar
+
+Average_time_bar<-ggplot(merge_df_sort, aes(New_week, `Avg. Time on Site (secs.)`)) + stat_summary(fun.y = mean, geom = "bar", fill = "White", colour = "Black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Time", y = "Avg. Time on Site", title = "`Avg. Time on Site (secs.) over the period")
+Average_time_bar
+
+#Advanced analysis- create a new data frame to do further anaylsis
+
+# Create a new data frame for analysis (Drop unique visit, Page views, Profits) 
+analysis_df<-as.data.frame(merge_df_sort)
+analysis_df$`Unique Visits`<-NULL
+analysis_df$`Week (2008-2009)`<-NULL
+analysis_df$Pageviews<-NULL
+analysis_df$Profit<-NULL
+
+View(analysis_df)
+
+#Rename columns- remove blanks:
+
+new_col_names<-c("Visits","Pages/Visit","AvgTime_on_Site","Bounce_Rate","New_Visits_rate","New_week","Revenue","Lbs_Sold","Inquiries")
+names(analysis_df)<-new_col_names
+analysis_df
+
+colnames(analysis_df)
+
+# The reason why dropped these columns:
+"
+Unique visits-> Visits and Unique visits have similar patterns
+Page views -> does not have high correlation to revenue
+Profits -> Profits and Revenue have smiliar patterns
+
+"
+
+# Group weeks into 4 groups-> Initital Period, Pre-Promotion, Promotion, Post-promotion
+
+analysis_df$Group<-c()
+
+for(i in 1:nrow(analysis_df)){
+  if(analysis_df$New_week[i] >= "2008-05-25" && analysis_df$New_week[i] < "2008-08-31"){analysis_df$Group[i]<-"Initial Period"}
+  else if (analysis_df$New_week[i] >= "2008-08-31"&& analysis_df$New_week[i] < "2009-01-25"){analysis_df$Group[i]<-"Pre-Promotion"}
+  else if (analysis_df$New_week[i] >= "2009-01-25"&& analysis_df$New_week[i] < "2009-05-24"){analysis_df$Group[i]<-"Promotion"}
+  else{analysis_df$Group[i]<-"Post-Promotion"}
+
+}
+
+
+merge_df_sort$Group<-c()
+
+for(i in 1:nrow(merge_df_sort)){
+  if(merge_df_sort$New_week[i] >= "2008-05-25" && merge_df_sort$New_week[i] < "2008-08-31"){merge_df_sort$Group[i]<-"Initial Period"}
+  else if (merge_df_sort$New_week[i] >= "2008-08-31"&& merge_df_sort$New_week[i] < "2009-01-25"){merge_df_sort$Group[i]<-"Pre-Promotion"}
+  else if (merge_df_sort$New_week[i] >= "2009-01-25"&& merge_df_sort$New_week[i] < "2009-05-24"){merge_df_sort$Group[i]<-"Promotion"}
+  else{merge_df_sort$Group[i]<-"Post-Promotion"}
+  
+}
+
+
+# Create a new matrix- sum up - Visits, Revenue, Lbs Sold, Inquiries
+
+# 1. Create 4 empty list
+
+Initial_sum<-c()
+Pre_Promo_sum<-c()
+Promo_sum<-c()
+Post_promo_sum<-c()
+
+
+# 2. Create a function for sum up the group 
+
+sum_group<-function(col_ind, group){
+  sub_total<-sum(analysis_df[,col_ind][analysis_df$Group == group])
+  return(sub_total)
+}
+
+
+# 3. For loop to create sumup of each columns by group  
+
+list_group<-c("Initial Period","Pre-Promotion","Promotion","Post-Promotion")
+list_sum_index<-c(1,7,8,9)
+
+
+for (i in 1:4) { Initial_sum[i]<-sum_group(col_ind = list_sum_index[i], group = list_group[1])}
+for (i in 1:4) { Pre_Promo_sum[i]<-sum_group(col_ind = list_sum_index[i], group = list_group[2])}
+for (i in 1:4) { Promo_sum[i]<-sum_group(col_ind = list_sum_index[i], group = list_group[3])}
+for (i in 1:4) { Post_promo_sum[i]<-sum_group(col_ind = list_sum_index[i], group = list_group[4])}
+
+# 4. Build the Matrix
+
+Sum_Matrix<-matrix(c(Initial_sum,Pre_Promo_sum,Promo_sum,Post_promo_sum), nrow = 4, byrow = FALSE, dimnames = list(c(colnames(analysis_df[list_sum_index])), list_group))
+Sum_Matrix
+format(Sum_Matrix,big.mark=",", trim=TRUE)
+
+
+# Create a new matrix- Average - Visits, Page/Visits, Average time, Bonus rate, New visit rate
+
+# 1. Create 4 empty list
+
+list_ave_index<-c(1:5)
+colnames(analysis_df[list_ave_index])
+
+Initial_ave<-c()
+Pre_Promo_ave<-c()
+Promo_ave<-c()
+Post_promo_ave<-c()
+
+
+# 2. Create a function for average the group 
+
+average_group<-function(col_ind, group){
+  average<-mean(analysis_df[,col_ind][analysis_df$Group == group])
+  return(average)
+}
+
+average_group(col_ind = 1, group = "Initial Period")
+
+# 3. For loop to create a list of average of each columns by group
+
+
+
+for (i in 1:5) { Initial_ave[i]<-average_group(col_ind = list_ave_index[i], group = list_group[1])}
+for (i in 1:5) { Pre_Promo_ave[i]<-average_group(col_ind = list_ave_index[i], group = list_group[2])}
+for (i in 1:5) { Promo_ave[i]<-average_group(col_ind = list_ave_index[i], group = list_group[3])}
+for (i in 1:5) { Post_promo_ave[i]<-average_group(col_ind = list_ave_index[i], group = list_group[4])}
+
+
+
+Initial_ave
+Pre_Promo_ave
+Promo_ave
+Post_promo_ave
+
+
+
+# 4. Build the Matrix
+
+Ave_Matrix<-matrix(c(Initial_ave,Pre_Promo_ave,Promo_ave,Post_promo_ave), nrow = 5, byrow = FALSE, dimnames = list(c(paste(colnames(analysis_df[list_ave_index]),"mean")), list_group))
+Ave_Matrix
+
+New_ave_matrix<-t(Ave_Matrix)
+New_ave_matrix<-cbind(New_ave_matrix, c("Initial Period", "Pre-Promotion", "Promotion","Post-promotion"))  
+
+New_ave_matrix<-as.data.frame(New_ave_matrix)
+colnames(New_ave_matrix)<-c("Visits mean","Pages/Visit mean","AvgTime_on_Site mean","Bounce_Rate mean","New_Visits_rate mean","Period" )
+New_ave_matrix$Period<-factor(New_ave_matrix$Period, levels = unique(New_ave_matrix$Period))
+
+
+#Line graph
+Ave_visit_period<-ggplot(data=New_ave_matrix, aes(y=`Visits mean`, x=Period ,group=1)) +geom_line(color="red")+geom_point()+labs(x = "Period", y = "Ave Visits",title = "Ave visits over the period")
+
+
+
+# Question 3 Create a matrix- Average - Visits, Unique Visits, Revenue, Profits, Lbs sold
+
+# 1. Create 5 empty list
+list_ave_index_2<-c(2,3,10,11,12)
+colnames(merge_df_sort[list_ave_index_2])
+
+Initial_ave_2<-c()
+Pre_Promo_ave_2<-c()
+Promo_ave_2<-c()
+Post_promo_ave_2<-c()
+
+
+# 2. Create a function for average the group 
+
+average_group_2<-function(col_ind, group){
+  average<-mean(merge_df_sort[,col_ind][merge_df_sort$Group == group])
+  return(average)
+}
+
+
+# 3. For loop to create a list of average of each columns by group
+
+for (i in 1:5) { Initial_ave_2[i]<-average_group_2(col_ind = list_ave_index_2[i], group = list_group[1])}
+for (i in 1:5) { Pre_Promo_ave_2[i]<-average_group_2(col_ind = list_ave_index_2[i], group = list_group[2])}
+for (i in 1:5) { Promo_ave_2[i]<-average_group_2(col_ind = list_ave_index_2[i], group = list_group[3])}
+for (i in 1:5) { Post_promo_ave_2[i]<-average_group_2(col_ind = list_ave_index_2[i], group = list_group[4])}
+
+
+#Plot the bar chart and trend line over 4 periods
+
+Ave_Matrix_2<-matrix(c(Initial_ave_2,Pre_Promo_ave_2,Promo_ave_2,Post_promo_ave_2), nrow = 5, byrow = FALSE, dimnames = list(c(paste(colnames(merge_df_sort[list_ave_index_2]),"mean")), list_group))
+Ave_Matrix_2
+
+New_ave_matrix_2<-as.data.frame(t(Ave_Matrix_2))
+New_ave_matrix_2$Period<-c("Initial Period", "Pre-Promotion", "Promotion","Post-promotion")
+New_ave_matrix_2$Period<-factor(New_ave_matrix_2$Period, levels = unique(New_ave_matrix_2$Period))
+
+Ave_Rev_period<-ggplot(data=New_ave_matrix_2, aes(y=`Revenue mean`, x=New_ave_matrix_2$Period ,group=1))+geom_bar(stat = "identity", width = 0.3, color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Period", y = "Ave Revenue",title = "Ave revenue within 4 stages")+geom_smooth(method = 'lm', color ='red')+scale_y_continuous(name ="Ave Revenue",labels = scales::comma ) 
+Ave_Rev_period
+
+
+
+Ave_Visits_period<-ggplot(data=New_ave_matrix, aes(y=`Visits mean`, x=Period ,group=1))+geom_bar(stat = "identity", width = 0.3, color = "black") + stat_summary(fun.data = mean_cl_normal, geom = "pointrange") + labs(x = "Period", y = "Ave Visits",title = "Ave visits within 4 stages")+geom_smooth(color ='red')
+Ave_Visits_period
+
+
+
+
+
+
+
+#Regression analysis
+
+cor(analysis_df[,c(2,3,4,9,7)])
+cor(analysis_df[,c(2,3,4,9,7,8)])
+cor(analysis_df[,c(2,3,4,7)])
+
+
+corrplot(cor(analysis_df[,c(2,3,4,7)]),type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+scatter_revenue_page<-ggplot(analysis_df, aes(`Pages/Visit`,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Visits", y="Revenue",title ="Revenue v.s Pages/Visit")
+scatter_revenue_page
+
+
+mean(analysis_df$AvgTime_on_Site)
+mean(analysis_df$`Pages/Visit`)
+
+#Create a pretictive model 
+
+#Methodology 
+#
+"
+Use bouncing rate, Ave_time_onsite, page/visit to define the potential of revenue growth  
+
+"
+
+model<-lm(Revenue~`Pages/Visit`+AvgTime_on_Site+Bounce_Rate , data = analysis_df)
+summary(model)
+plot(model)
+
+"
+After first model, we find out that ave_time_on site does not have statistic significant 
+-> Remove AveTime_on_site 
+
+"
+
+
+model_2<-model<-lm(Revenue~`Pages/Visit`+Bounce_Rate , data = analysis_df)
+summary(model_2)
+plot(model_2)
+
+scatter_revenue_page<-ggplot(analysis_df, aes(`Pages/Visit`,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Page/Visite", y="Revenue",title ="Revenue v.s Pages/Visit")
+scatter_revenue_page
+
+scatter_revenue_bounce<-ggplot(analysis_df, aes(Bounce_Rate,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Bounce Rate", y="Revenue",title ="Revenue v.s Bounce Rate")
+scatter_revenue_bounce
+
+
+"
+Use bouncing rate, Ave_time_onsite, page/visit to define the potential of Lbs Sold
+
+"
+
+analysis_df$Lbs_Sold
+
+model_3<-model<-lm(Lbs_Sold~`Pages/Visit`+Bounce_Rate , data = analysis_df)
+summary(model_3)
+plot(model_3)
+
+
+"
+
+create a column - retain visit (Visit-Unique visits) to find out the highest correlation
+
+"
+
+analysis_df$retain_visit<-c()
+
+for(i in 1:nrow(analysis_df)){
+  analysis_df$retain_visit[i]<-merge_df_sort$Visits[i]-merge_df_sort$`Unique Visits`[i]
+}
+
+
+corrplot(cor(analysis_df[c(1,2,3,4,5,7,8,9,11)]),type = "upper", order = "hclust",tl.col = "black", tl.srt = 45)
+
+cor(analysis_df[c(2,4,5,7,8,13)])
+
+
+"
+Use bouncing rate, retain_visit , page/visit to define the potential of Lbs Sold
+
+"
+
+analysis_df$Lbs_Sold
+
+model_4<-model<-lm(Revenue~`Pages/Visit`+retain_visit , data = analysis_df)
+summary(model_4)
+plot(model_4)
+
+scatter_revenue_page<-ggplot(analysis_df, aes(`Pages/Visit`,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Page/Visite", y="Revenue",title ="Revenue v.s Pages/Visit")
+scatter_revenue_page
+
+scatter_revenue_retain<-ggplot(analysis_df, aes(retain_visit,Revenue)) +geom_point() +geom_smooth(method="lm", colour = "Red") +labs(x="Page/Visite", y="Revenue",title ="Revenue v.s Retain Visit")
+scatter_revenue_retain
+
+
+
+
+#Geography 
+
+area_df<-as.data.frame(Demography[c(35:44),c(2,3)])
+area_df
+
+area_df$group<-c("American Continent","American Continent","American Continent","Europe","Asia","Europe","Asia","Asia","Europe","Europe")
+
+
+Geo_bar<-ggplot(data=area_df, aes(y=`...3`, x=group ))+geom_bar(stat = "identity", width = 0.3, color = "black") + labs(x = "Area", y = " Visits",title = "Visitors demographiy")+geom_smooth(color ='red')
+
+area_df[,2]<-as.numeric(area_df[,2])
+
+sum_area_new<-data.frame(Area=c("American Continent","Asia","Europe"), Sum_up=c(sum(area_df[,2][area_df$group == "American Continent"]),sum(area_df[,2][area_df$group == "Europe"]),sum(area_df[,2][area_df$group == "Asia"])))
+sum_area_new
+
+Geo_bar<-ggplot(data=sum_area_new, aes(y=Sum_up, x=Area ))+geom_bar( aes(fill=Area),stat = "identity", width = 0.3) + labs(x = "Area", y = " Visits",title = "Visitors demographiy")
+Geo_bar
+
+Geo_bar
